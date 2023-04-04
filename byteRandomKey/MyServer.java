@@ -16,8 +16,16 @@ public class MyServer {
         ServerSocket serSocket = null;
         Socket socket = null;
         InputStreamReader sr = new InputStreamReader(System.in);
+
+        // 암호화를 위한 변수들
         AesClass ase = null;
+        String key = null;
+        String iv = null;
+
+        // 처음 암호키를 전달하기 위함
         boolean isFirst = true;
+
+        // 입출력을 위한 char 배열
         char[] byteArr = null;
 
         // 서버 연결
@@ -34,8 +42,8 @@ public class MyServer {
             out = new OutputStreamWriter(socket.getOutputStream());
 
             // 암호화 코드 생성
-            String key = createKey();
-            String iv = createKey();
+            key = createKey();
+            iv = createKey();
             ase = new AesClass(key, iv);
 
             // 실제 통신
@@ -53,7 +61,7 @@ public class MyServer {
                 byteArr = new char[512];
                 in.read(byteArr);
 
-                // 문자열로
+                // 복호화 코드 수신 
                 String inputMessage = new String(byteArr).trim();
                 System.out.println("==== From Client ====\n" + "복호화 코드: " + inputMessage);
 
@@ -73,13 +81,12 @@ public class MyServer {
                 System.out.println("복호화 결과: " + inputMessage);
                 System.out.print("회신하기: ");
 
-                // char 배열로 입력을 받아오고 string 형으로 변환하여 출력
+                // char 배열로 입력을 받아와 전달
                 byteArr = new char[512];
                 sr.read(byteArr);
-                String outputMessage = new String(byteArr).trim();
                 out.write(byteArr);
                 out.flush();
-                if ("exit".equals(outputMessage)) break; // 출력이 exit면 종료
+                if ("exit".equals(new String(byteArr).trim())) break; // 출력이 exit면 종료
             }
         } catch (IOException e) {
             e.printStackTrace();

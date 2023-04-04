@@ -56,7 +56,7 @@ public class MyClient {
                 out.flush();
                 if ("exit".equals(outputMessage)) break; // 출력이 exit면 종료
 
-                // 문자열로 받아와 문자열로 출력
+                // 입력을 문자열로 출력
                 byteArr = new char[512];
                 in.read(byteArr);
                 String inputMessage = new String(byteArr).trim();

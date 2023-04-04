@@ -25,7 +25,7 @@ public class MyClient {
         // 처음 암호 키를 받기위함 
         boolean isFirst = true;
 
-        // 입출력을 위한 바이트배열
+        // 입출력을 위한 char 배열
         char[] byteArr;
 
         // 서버 연결
@@ -38,25 +38,25 @@ public class MyClient {
             in = new InputStreamReader(socket.getInputStream());
             out = new OutputStreamWriter(socket.getOutputStream());
 
-            // 해독키, CBC 키
             // 실제 통신
             while (true) {
 
-                // 처음 통신일시
+                // 처음 통신일시 암호키를 받아옴
                 if (isFirst) {
                     System.out.println("암호키 받음");
                     byteArr = new char[512];
                     in.read(byteArr);
+
+                    // 암호키 설정
                     StringTokenizer st = new StringTokenizer(new String(byteArr).trim(), ":");
                     key = st.nextToken();
                     iv = st.nextToken();
-//                    key = "1234567890123456";
                     System.out.println(key + ":" + iv);
                     ase = new AesClass(key, iv);
                     isFirst = false;
                 }
 
-                // 서버에 입력을 전송, 문자열로 전달
+                // 서버에 입력을 전송, 문자열로 변환하여 복호화
                 System.out.print("전송하기: ");
                 byteArr = new char[512];
                 sr.read(byteArr);
@@ -71,7 +71,7 @@ public class MyClient {
                 out.flush();
                 if ("exit".equals(outputMessage)) break; // 출력이 exit면 종료
 
-                // 문자열로 받아와 문자열로 출력
+                // 입력을 문자열로 출력
                 byteArr = new char[512];
                 in.read(byteArr);
                 String inputMessage = new String(byteArr).trim();

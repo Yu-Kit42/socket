@@ -53,14 +53,13 @@ public class AesClass {
         return new String(c.doFinal(decodeByte), "UTF-8");
     }
 
+    /*
     public static void main(String[] args) throws Exception {
 
-        /*
-         * 키 값의 바이트 수에 따라서 달라집니다.
-         * AES128 : 키값 16bytes
-         * AES192 : 키값 24bytes
-         * AES256 : 키값 32bytes
-         */
+         // 키 값의 바이트 수에 따라서 달라집니다.
+         // AES128 : 키값 16bytes
+         // AES192 : 키값 24bytes
+         // AES256 : 키값 32bytes
 
         String plainText = "AesPlainText";
         String key_128 = "aeskey1234567898";//AES-128는 128비트(16바이트)의 키
@@ -76,5 +75,5 @@ public class AesClass {
         System.out.println("Aes128 Decode CBC: " + aes128CbcDeocde);
 
     }
-
+*/
 }
