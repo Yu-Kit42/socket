@@ -55,13 +55,13 @@ public class MyServer {
 
                 // 문자열로
                 String inputMessage = new String(byteArr).trim();
-                System.out.println("==== From Client ====\n" + inputMessage);
+                System.out.println("==== From Client ====\n" + "복호화 코드: " + inputMessage);
 
                 // 복호화
                 try {
                     inputMessage = ase.AesCBCDecode(inputMessage);
                 } catch (Exception e){
-                    System.out.println("복호화 실패");
+                    System.out.println("복호화 실패, 올바른 복호화가 아닙니다.");
                     out.write("exit");
                     out.flush();
                     break;
@@ -95,6 +95,7 @@ public class MyServer {
         }
     }
 
+    // 16자리의 랜덤 숫자코드를 생성
     private static String createKey() {
         Random rn = new Random();
         StringBuilder sb = new StringBuilder();

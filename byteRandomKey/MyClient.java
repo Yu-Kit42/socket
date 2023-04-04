@@ -50,7 +50,7 @@ public class MyClient {
                     StringTokenizer st = new StringTokenizer(new String(byteArr).trim(), ":");
                     key = st.nextToken();
                     iv = st.nextToken();
-                    key = "1234567890123456";
+//                    key = "1234567890123456";
                     System.out.println(key + ":" + iv);
                     ase = new AesClass(key, iv);
                     isFirst = false;
