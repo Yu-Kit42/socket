@@ -23,7 +23,7 @@ public class MyClient {
         // 암호화를 위한 변수들
         AesClass aes = null;
 
-        // 처음 암호키를 전달하기 위함
+        // 처음 암호키를 수신 받기 위함
         boolean isFirst = true;
 
         // 입출력을 위한 char 배열
@@ -47,9 +47,9 @@ public class MyClient {
 
         // 통신
         while (isConnection) {
-            // 맨 처음 통신할 경우 키를 넘겨줌
+            // 맨 처음 통신할 경우 키를 암호키를 받아옴
             if (isFirst) {
-                aes = myClient.reception(in, new char[512]);
+                aes = myClient.receptionKey(in, new char[512]);
                 isFirst = false;
             }
 
@@ -94,7 +94,7 @@ public class MyClient {
         }
     }
 
-    private AesClass reception(InputStreamReader in, char[] bytes) {
+    private AesClass receptionKey(InputStreamReader in, char[] bytes) {
         AesClass aes = null;
         try {
             log.debug("암호화 키 받음");

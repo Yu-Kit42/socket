@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Random;
@@ -53,7 +52,7 @@ public class MyServer {
         out = myServer.createOutStream(socket);
 
 
-        // 암호화 코드
+        // 암호화 코드 생성
         key = myServer.createKey(rn);
         iv = myServer.createKey(rn);
         aes = myServer.createAES(key, iv);
@@ -128,6 +127,7 @@ public class MyServer {
             log.debug("서버 소켓 생성");
         } catch (IOException e) {
             log.error("서버 소켓 생성 실패");
+            e.printStackTrace();
         }
         return serSocket;
     }
@@ -178,7 +178,7 @@ public class MyServer {
         AesClass aes = null;
         try {
             aes = new AesClass(key, iv);
-        } catch (UnsupportedEncodingException e) {
+        } catch (Exception e) {
             log.error("암호화 키 생성 실패");
         }
         return aes;

@@ -5,18 +5,17 @@ import org.apache.commons.codec.binary.Hex;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 
 public class AesClass {
 
     private SecretKeySpec secretKey;
     private IvParameterSpec IV;
 
-    public AesClass(String reqSecretKey, String iv) throws UnsupportedEncodingException {
+    public AesClass(String reqSecretKey, String iv) {
 
         //바이트 배열로부터 SecretKey를 구축
-        this.secretKey = new SecretKeySpec(reqSecretKey.getBytes("UTF-8"), "AES");
-//        this.IV = new IvParameterSpec(reqSecretKey.substring(0,16).getBytes());
+        this.secretKey = new SecretKeySpec(reqSecretKey.getBytes(StandardCharsets.UTF_8), "AES");
         this.IV = new IvParameterSpec(iv.getBytes());
     }
 
