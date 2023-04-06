@@ -1,4 +1,4 @@
-package socket.AES;
+package socket.aes_exam;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -112,7 +112,7 @@ public class eaxm_AES {
      * @param dest   대상 파일
      * @param c      생성된 Cipher 객체 전달
      * @Step
-     *  1. 생성한 파일의 버퍼를 읽어들임.
+     *  1. 생성한 파일의 버퍼를 읽어들임.a
      *  2. Base64 인코딩된 문자열 -> Base64 디코딩 Byte[]로 변환
      *  3. Base64 디코딩 Byte[] -> Cipher.update를 사용하여 AES256 Decryption 실행
      *  4. Cipher.doFinal()로 마지막 Padding을 추가.
