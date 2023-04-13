@@ -1,4 +1,4 @@
-package socket.final_exam.aes;
+package socket.final_exam;
 
 
 import org.apache.commons.codec.binary.Hex;

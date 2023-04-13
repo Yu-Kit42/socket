@@ -1,10 +1,9 @@
-package socket.final_exam.socket;
+package socket.final_exam;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import socket.final_exam.aes.AesClass;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -33,24 +32,24 @@ public class MyClient {
     private boolean isSendKey = true;
     private int aesKeyLength = 128;
     private boolean isCreateIv = true;
-    private boolean isReConnection = false;
+    private String ipAddress = "10.81.10.58";
 
 
     public static void main(String[] args) {
         MyClient myClient = new MyClient();
+        boolean isConnection;
+        myClient.sr = new InputStreamReader(System.in);
+        myClient.sb = new StringBuilder();
+        do {
+            isConnection = myClient.startMenu();
+            myClient.streamClose();
+        }
+        while (isConnection);
 
-        // 초기화
-        log.debug("프로그램 실행");
-        myClient.initSocket();
-        log.debug("클라이언트 생성 실행");
-        myClient.initInOut();
 
-        // 통신 시작
-        myClient.startMenu();
-        myClient.streamClose();
     }
 
-    private void startMenu() {
+    private boolean startMenu() {
         try {
             while (true) {
                 setMenuMsg();
@@ -58,15 +57,11 @@ public class MyClient {
                 sr.read(byteArr);
                 switch (byteArr[0]) {
                     case '1':
-                        if (isReConnection) {
-                            out.write("NotEnd");
-                            out.flush();
-                        }
-                        sendSetting();
-                        receptionKey();
+                        if (initSocket()) continue;
+                        initInOut();
+                        if (sendSetting() || receptionKey()) continue;
                         while (send()) if (!reception()) break;
-                        isReConnection = true;
-                        break;
+                        return true;
                     case '2':
                         isSendKey = !isSendKey;
                         initSecretKey();
@@ -79,15 +74,14 @@ public class MyClient {
                         break;
                     case '9':
                         System.out.println("통신을 종료합니다");
-                        connectionEnd();
-                        return;
+                        return false;
                     default:
                         System.out.println("올바르지 않은 입력입니다");
                 }
             }
         } catch (Exception ignore) {
-            log.error("송신 실패");
-            ignore.printStackTrace();
+            log.error("메뉴에서 오류발생!");
+            return false;
         }
     }
 
@@ -105,16 +99,12 @@ public class MyClient {
         }
     }
 
-    private void connectionEnd() {
-        try {
-            out.write("END");
-            out.flush();
-        } catch (IOException ignore) {
-            log.error("연결 중단 실패");
+    private boolean sendSetting() {
+        System.out.println(socket.isConnected());
+        if (!socket.isConnected()) {
+            System.out.println("아직 서버가 준비되지 않았습니다 잠시 뒤 시도해 주세요");
+            return true;
         }
-    }
-
-    private void sendSetting() {
         sb.setLength(0);
         sb.append(isSendKey ? 1 : 0).append(":");
         sb.append(aesKeyLength).append(":");
@@ -124,8 +114,10 @@ public class MyClient {
         try {
             out.write(sb.toString());
             out.flush();
+            return false;
         } catch (IOException ignore) {
             log.error("설정 송신 실패");
+            return true;
         }
     }
 
@@ -144,28 +136,29 @@ public class MyClient {
         System.out.println(sb);
     }
 
-    private void initSocket() {
+    private boolean initSocket() {
         try {
-            this.socket = new Socket("10.51.10.175", 8000);
+            this.socket = new Socket(ipAddress, 8000);
             log.debug("소켓 생성");
+            return false;
         } catch (IOException ignore) {
             log.debug("소켓 생성 실패");
-            ignore.printStackTrace();
+            printError();
+            return true;
         }
     }
 
+    private void printError() {
+        System.out.println("서버가 닫힌것 같습니다... 잠시후 시도해 주세요");
+    }
+
     private void initInOut() {
-        if (sb == null) sb = new StringBuilder();
         try {
             in = new InputStreamReader(socket.getInputStream());
             log.debug("수신 스트림 생성");
         } catch (IOException ignore) {
             log.error("수신 스트림 생성 실패");
         }
-
-        sr = new InputStreamReader(System.in);
-        log.debug("입력 스트림 생성");
-
         try {
             out = new OutputStreamWriter(socket.getOutputStream());
             log.debug("송신 스트림 생성");
@@ -175,10 +168,12 @@ public class MyClient {
 
     }
 
-    private void receptionKey() {
+    private boolean receptionKey() {
         byteArr = new char[512];
         try {
+            System.out.println("서버 연결을 기다리는 중입니다...");
             in.read(byteArr);
+            System.out.println("연결 성공");
             StringTokenizer st = new StringTokenizer(new String(byteArr).trim(), ":");
             if (isSendKey) {
                 key = st.nextToken();
@@ -189,14 +184,18 @@ public class MyClient {
             iv = Hex.decodeHex(st.nextToken());
             log.info("수신 받은 iv: {}", Hex.encodeHexString(iv));
             aes = new AesClass(Hex.decodeHex(key));
+            return false;
         } catch (IOException | NoSuchAlgorithmException | DecoderException ignore) {
             log.error("암호키 수신 실패");
+            printError();
+            return true;
         }
     }
 
     private boolean send() {
         byteArr = new char[512];
         try {
+            System.out.print("송신: ");
             sr.read(byteArr);
             String outputMessage = new String(byteArr).trim();
             out.write(messageEncode(outputMessage));
@@ -206,7 +205,6 @@ public class MyClient {
             return !outputMessage.equals("exit");
         } catch (Exception e) {
             log.error("송신 실패");
-            e.printStackTrace();
             return false;
         }
     }
@@ -221,7 +219,7 @@ public class MyClient {
             if (isCreateIv) iv = Hex.decodeHex(st.nextToken());
             inputMessage = st.nextToken();
             inputMessage = messageDecode(inputMessage);
-            System.out.println("복호화 결과: {}" + inputMessage);
+            System.out.println("복호화 결과: " + inputMessage);
 
             return !inputMessage.equals("exit");
         } catch (Exception ignore) {
@@ -240,7 +238,7 @@ public class MyClient {
 
     private void streamClose() {
         try {
-            sr.close();
+            if (socket == null) return;
             socket.close();
             in.close();
             out.close();
