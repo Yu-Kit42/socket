@@ -19,12 +19,11 @@ public class MyServer {
     AesClass aes = null;
     String key = null;
     byte[] iv = null;
-
     char[] byteArr = null;
     private int aesKeyLength = 128;
     private boolean isSendKey = false;
     private boolean isCreateIv = true;
-    // 입출력을 위한 Stream 객체들
+    // 입출력을 위한 변수들
     private InputStreamReader in = null;
     private InputStreamReader sr = null;
     private OutputStreamWriter out = null;
@@ -44,21 +43,22 @@ public class MyServer {
             log.debug("클라이언트 소켓 대기중");
             myServer.initSocket();
             log.debug("클라이언트 소켓 연결");
-            myServer.initInOut();
+            myServer.initStream();
 
             // 통신 시작 전 환경 설정 체크
-            if (myServer.receptionSetting()) continue;
+            if (!myServer.receptionSetting()) continue;
             myServer.sendKey();
 
             // 실제 통신
-            while (myServer.reception()) if (!myServer.send()) break;
+            while (myServer.reception()) if (myServer.send()) break;
             myServer.inPutStreamClose();
 
             // 통신을 계속할지 서버를 내릴지 선택
-        } while (!myServer.checkExitServer());
-        myServer.closeServer();
+        } while (true);
+//        myServer.closeServer();
     }
 
+    /*
     private void closeServer() {
         try {
             sr.close();
@@ -79,6 +79,7 @@ public class MyServer {
             return false;
         }
     }
+    */
 
     private void initSocket() {
         try {
@@ -106,16 +107,16 @@ public class MyServer {
                 log.info("클라에서 키 전달받음: {}", key);
             }
             initSecretKey();
-            return false;
+            return true;
 
         } catch (Exception ignore) {
             log.error("설정 수신 실패");
-            return true;
+            return false;
         }
     }
 
     private void initSerSocket() {
-        log.debug("1단계 소켓 생성");
+        log.debug("소켓 생성");
         try {
             this.serSocket = new ServerSocket(8000);
             log.debug("서버 소켓 생성");
@@ -128,30 +129,24 @@ public class MyServer {
         try {
             srn = SecureRandom.getInstanceStrong();
         } catch (NoSuchAlgorithmException ignore) {
-            log.debug("서버 소켓 생성 실패");
+            log.debug("랜덤 객체 생성 실패");
         }
     }
 
-    private void initInOut() {
-        log.debug("2단계 입출력 스트림 생성");
+    private void initStream() {
+        log.debug("입출력 스트림 생성");
         try {
             in = new InputStreamReader(socket.getInputStream());
-            log.debug("수신 스트림 생성");
-        } catch (IOException ignore) {
-            log.error("수신 스트림 생성 실패");
-        }
-
-        try {
             out = new OutputStreamWriter(socket.getOutputStream());
-            log.debug("송신 스트림 생성");
+            log.debug("스트림 생성");
         } catch (IOException ignore) {
-            log.error("송신 스트림 생성 실패");
+            log.error("스트림 생성 실패");
         }
 
     }
 
     private void initSecretKey() {
-        log.debug("3단계 암호화 키 생성");
+        log.debug("암호화 키 생성");
         if (isSendKey) return;
         byte[] secretKeyByteArr = new byte[aesKeyLength / 8];
         srn.nextBytes(secretKeyByteArr);
@@ -201,6 +196,7 @@ public class MyServer {
 
     private boolean send() {
         byteArr = new char[512];
+        boolean result;
         try {
             System.out.print("송신: ");
             sr.read(byteArr);
@@ -209,11 +205,13 @@ public class MyServer {
                 createIv();
                 out.write(Hex.encodeHexString(iv) + ":");
             }
-            out.write(messageEncode(outputMessage));
+            result = outputMessage.equals("exit");
+            outputMessage = messageEncode(outputMessage);
+            out.write(outputMessage);
             out.flush();
-            log.info("암호문: {}", messageEncode(outputMessage));
+            log.info("암호문: {}", outputMessage);
             log.debug("송신 보냄");
-            return !outputMessage.equals("exit");
+            return result;
         } catch (Exception ignore) {
             log.error("송신 실패");
             return false;

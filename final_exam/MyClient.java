@@ -5,6 +5,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.NoSuchPaddingException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -21,46 +22,45 @@ public class MyClient {
     private String key = null;
     private byte[] iv = null;
 
-    // 입출력을 위한 char 배열
+    // 입출력을 위한 char 배열, 메뉴 출력을 위한 StringBuilder
     private char[] byteArr = null;
     private StringBuilder sb = null;
     // 입출력을 위한 Stream 객체들
     private InputStreamReader in = null;
     private InputStreamReader sr = null;
     private OutputStreamWriter out = null;
+
     private Socket socket = null;
     private boolean isSendKey = true;
     private int aesKeyLength = 128;
     private boolean isCreateIv = true;
-    private String ipAddress = "10.81.10.58";
+    private final String ipAddress = "10.51.10.230";
 
 
     public static void main(String[] args) {
         MyClient myClient = new MyClient();
         boolean isConnection;
+
         myClient.sr = new InputStreamReader(System.in);
         myClient.sb = new StringBuilder();
+
         do {
-            isConnection = myClient.startMenu();
+            isConnection = myClient.runMenu();
             myClient.streamClose();
         }
         while (isConnection);
 
-
     }
 
-    private boolean startMenu() {
-        try {
-            while (true) {
-                setMenuMsg();
-                byteArr = new char[512];
+    private boolean runMenu() {
+        while (true) {
+            setMenuMsg();
+            byteArr = new char[512];
+            try {
                 sr.read(byteArr);
                 switch (byteArr[0]) {
                     case '1':
-                        if (initSocket()) continue;
-                        initInOut();
-                        if (sendSetting() || receptionKey()) continue;
-                        while (send()) if (!reception()) break;
+                        if (communicationExecute()) continue;
                         return true;
                     case '2':
                         isSendKey = !isSendKey;
@@ -76,23 +76,32 @@ public class MyClient {
                         System.out.println("통신을 종료합니다");
                         return false;
                     default:
-                        System.out.println("올바르지 않은 입력입니다");
+                            System.out.println("올바르지 않은 입력입니다");
                 }
+            } catch (Exception ignore) {
+                log.error("메뉴에서 오류발생!");
+                return false;
             }
-        } catch (Exception ignore) {
-            log.error("메뉴에서 오류발생!");
-            return false;
         }
+    }
+
+    private boolean communicationExecute() {
+        if (!initSocket()) return true;
+        initStream();
+        if (!sendSetting() || !receptionKey()) return true;
+        while (send()) if (!reception()) break;
+        return false;
     }
 
     private void initAesKeyLength() {
         try {
             byteArr = new char[512];
-            System.out.println("1: 128, 2: 192, 3: 256");
+            System.out.println("1: 128, 2: 192, 3: 256 (범위 외 입력시 크기가 유지됩니다.)");
             sr.read(byteArr);
             if (byteArr[0] == '1') aesKeyLength = 128;
             else if (byteArr[0] == '2') aesKeyLength = 192;
-            else aesKeyLength = 256;
+            else if (byteArr[0] == '3') aesKeyLength = 256;
+            else return;
             initSecretKey();
         } catch (IOException ignore) {
             log.error("aes 키 길이 변경 실패");
@@ -100,24 +109,24 @@ public class MyClient {
     }
 
     private boolean sendSetting() {
-        System.out.println(socket.isConnected());
         if (!socket.isConnected()) {
             System.out.println("아직 서버가 준비되지 않았습니다 잠시 뒤 시도해 주세요");
-            return true;
+            return false;
         }
         sb.setLength(0);
         sb.append(isSendKey ? 1 : 0).append(":");
         sb.append(aesKeyLength).append(":");
         sb.append(isCreateIv ? 1 : 0).append(":");
         sb.append(isSendKey ? "" : key);
-        log.info(sb.toString());
+        String outMsg = sb.toString();
+        log.info(outMsg);
         try {
-            out.write(sb.toString());
+            out.write(outMsg);
             out.flush();
-            return false;
+            return true;
         } catch (IOException ignore) {
             log.error("설정 송신 실패");
-            return true;
+            return false;
         }
     }
 
@@ -140,11 +149,11 @@ public class MyClient {
         try {
             this.socket = new Socket(ipAddress, 8000);
             log.debug("소켓 생성");
-            return false;
+            return true;
         } catch (IOException ignore) {
             log.debug("소켓 생성 실패");
             printError();
-            return true;
+            return false;
         }
     }
 
@@ -152,7 +161,8 @@ public class MyClient {
         System.out.println("서버가 닫힌것 같습니다... 잠시후 시도해 주세요");
     }
 
-    private void initInOut() {
+    private void initStream() {
+        log.debug("test");
         try {
             in = new InputStreamReader(socket.getInputStream());
             log.debug("수신 스트림 생성");
@@ -184,11 +194,11 @@ public class MyClient {
             iv = Hex.decodeHex(st.nextToken());
             log.info("수신 받은 iv: {}", Hex.encodeHexString(iv));
             aes = new AesClass(Hex.decodeHex(key));
-            return false;
-        } catch (IOException | NoSuchAlgorithmException | DecoderException ignore) {
+            return true;
+        } catch (IOException | DecoderException | NoSuchPaddingException | NoSuchAlgorithmException ignore) {
             log.error("암호키 수신 실패");
             printError();
-            return true;
+            return false;
         }
     }
 
@@ -251,7 +261,6 @@ public class MyClient {
 
     private void initSecretKey() {
         if (isSendKey) return;
-
         try {
             if (srn == null) srn = SecureRandom.getInstanceStrong();
         } catch (Exception ignore) {
