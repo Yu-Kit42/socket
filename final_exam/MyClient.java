@@ -5,23 +5,20 @@ import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.crypto.NoSuchPaddingException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.StringTokenizer;
 
 public class MyClient {
     private static final Logger log = LoggerFactory.getLogger(MyClient.class);
     private final String ipAddress = "10.51.10.230";
-    private Socket socket = null;
-
     // 암호화
     private SecureRandom srn = null;
     private AesClass aes = null;
+    private Socket socket = null;
     private String key = null;
     private byte[] iv = null;
 
@@ -39,15 +36,10 @@ public class MyClient {
 
     public static void main(String[] args) {
         MyClient myClient = new MyClient();
-        boolean isConnection;
-
         myClient.sr = new InputStreamReader(System.in);
         myClient.sb = new StringBuilder();
-
-        do {
-            isConnection = myClient.runMenu();
+        while (myClient.runMenu())
             myClient.streamClose();
-        } while (isConnection);
     }
 
     private boolean runMenu() {
@@ -62,7 +54,7 @@ public class MyClient {
                         return true;
                     case '2':
                         isSendKey = !isSendKey;
-                        setSecretKey();
+                        setKey();
                         break;
                     case '3':
                         setAesKeyLength();
@@ -83,16 +75,21 @@ public class MyClient {
         }
     }
 
-    private boolean communicationExecute() {
+    private boolean communicationExecute() throws DecoderException {
+        if (aes == null) {
+            try {
+                aes = new AesClass();
+            } catch (Exception ignore){
+                log.error("aes 객체 생성 실패 {}", ignore.getLocalizedMessage());
+            }
+        }
+
         if (!initSocket()) return false;
         initStream();
         if (!sendSetting() || !receptionKey()) return false;
-        while (send()) {
-            if (!reception()) {
-                System.out.println("서버에서 종료 메시지를 보냈습니다.");
-                break;
-            }
-        }
+        aes.setSecretKey(Hex.decodeHex(key));
+        while (send()) if (!reception()) break;
+
         return true;
     }
 
@@ -105,13 +102,13 @@ public class MyClient {
             else if (byteArr[0] == '2') aesKeyLength = 192;
             else if (byteArr[0] == '3') aesKeyLength = 256;
             else return;
-            setSecretKey();
+            setKey();
         } catch (IOException ignore) {
             log.error("aes 키 길이 변경 실패");
         }
     }
 
-    private void setSecretKey() {
+    private void setKey() {
         if (isSendKey) return;
         try {
             if (srn == null) srn = SecureRandom.getInstanceStrong();
@@ -123,19 +120,9 @@ public class MyClient {
         log.debug("암호키 생성");
         key = Hex.encodeHexString(secretKeyByteArr);
 
-        try {
-            aes = new AesClass(secretKeyByteArr);
-            log.debug("AES 암호키 객체 생성");
-        } catch (Exception ignore) {
-            log.error("AES 암호키 객체 생성 실패");
-        }
-    }i
+    }
 
     private boolean sendSetting() {
-        if (!socket.isConnected()) {
-            System.out.println("아직 서버가 준비되지 않았습니다 잠시 뒤 시도해 주세요");
-            return false;
-        }
 
         sb.setLength(0);
         sb.append(isSendKey ? 1 : 0).append(":");
@@ -186,18 +173,12 @@ public class MyClient {
     }
 
     private void initStream() {
-        log.debug("test");
         try {
             in = new InputStreamReader(socket.getInputStream());
-            log.debug("수신 스트림 생성");
-        } catch (IOException ignore) {
-            log.error("수신 스트림 생성 실패");
-        }
-        try {
             out = new OutputStreamWriter(socket.getOutputStream());
-            log.debug("송신 스트림 생성");
+            log.debug("송수신 스트림 생성");
         } catch (IOException ignore) {
-            log.error("송신 스트림 생성 실패");
+            log.error("송수신 스트림 생성 실패");
         }
     }
 
@@ -216,33 +197,35 @@ public class MyClient {
             }
             iv = Hex.decodeHex(st.nextToken());
             log.info("수신 받은 iv: {}", Hex.encodeHexString(iv));
-            aes = new AesClass(Hex.decodeHex(key));
             return true;
-        } catch (IOException | DecoderException | NoSuchPaddingException | NoSuchAlgorithmException ignore) {
+        } catch (IOException | DecoderException ignore) {
             log.error("암호키 수신 실패");
             printError();
             return false;
         }
     }
 
+
     private boolean send() {
+        System.out.println(aes.toString());
         byteArr = new char[512];
         try {
             System.out.print("송신: ");
             sr.read(byteArr);
-            String outputMessage = new String(byteArr).trim();
-            out.write(messageEncode(outputMessage));
+            String outputMessage = messageEncode(new String(byteArr).trim());
+            out.write(outputMessage);
             out.flush();
-            log.info("iv: {} key: {} text: {}", Hex.encodeHexString(iv), key, messageEncode(outputMessage));
+            log.info("iv: {} key: {} text: {}", Hex.encodeHexString(iv), key, outputMessage);
             System.out.println("송신 보냄: " + outputMessage);
             return !outputMessage.equals("exit");
-        } catch (Exception e) {
+        } catch (Exception ignore) {
             log.error("송신 실패");
             return false;
         }
     }
 
     private boolean reception() {
+        System.out.println(aes.toString());
         byteArr = new char[512];
         try {
             in.read(byteArr);
@@ -275,10 +258,9 @@ public class MyClient {
             socket.close();
             in.close();
             out.close();
-            log.debug("통신 종료");
+            log.debug("통신 종단");
         } catch (IOException ignored) {
-            log.debug("통신 종료 절차 실패");
-            System.exit(1);
+            log.debug("통신 종단 절차 실패");
         }
     }
 

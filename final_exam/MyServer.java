@@ -15,6 +15,7 @@ import java.util.StringTokenizer;
 
 public class MyServer {
     private static final Logger log = LoggerFactory.getLogger(MyServer.class);
+
     // 암호화 
     AesClass aes = null;
     String key = null;
@@ -39,17 +40,16 @@ public class MyServer {
     public static void main(String[] args) {
         MyServer myServer = new MyServer();
 
-        // 초기화
         log.debug("프로그램 실행");
         myServer.initSerSocket();
 
         do {
-            log.debug("클라이언트 소켓 대기중");
+            System.out.println("클라이언트 소켓 대기중");
             myServer.initSocket();
-            log.debug("클라이언트 소켓 연결");
+            System.out.println("클라이언트 소켓 연결");
             myServer.initStream();
 
-            // 통신 시작 전 환경 설정 체크
+            // 통신 전 환경 설정 체크
             if (!myServer.receptionSetting()) continue;
             myServer.sendKey();
 
@@ -86,7 +86,6 @@ public class MyServer {
     */
 
     private void initSerSocket() {
-        log.debug("소켓 생성");
         try {
             this.serSocket = new ServerSocket(8000);
             log.debug("서버 소켓 생성");
@@ -94,12 +93,17 @@ public class MyServer {
             log.debug("서버 소켓 생성 실패");
         }
         sr = new InputStreamReader(System.in);
-        log.debug("입력 스트림 생성");
+        log.debug("송신 입력 스트림 생성");
 
         try {
             srn = SecureRandom.getInstanceStrong();
         } catch (NoSuchAlgorithmException ignore) {
             log.debug("랜덤 객체 생성 실패");
+        }
+        try {
+            aes = new AesClass();
+        } catch (Exception ignore){
+            log.error("aes 객체 생성 실패 {}", ignore.getLocalizedMessage());
         }
     }
 
@@ -118,9 +122,9 @@ public class MyServer {
         try {
             in = new InputStreamReader(socket.getInputStream());
             out = new OutputStreamWriter(socket.getOutputStream());
-            log.debug("스트림 생성");
+            log.debug("통신 스트림 생성");
         } catch (IOException ignore) {
-            log.error("스트림 생성 실패");
+            log.error("통신 스트림 생성 실패");
         }
 
     }
@@ -136,12 +140,14 @@ public class MyServer {
             isSendKey = st.nextToken().equals("0");
             aesKeyLength = Integer.parseInt(st.nextToken());
             isCreateIv = st.nextToken().equals("1");
+
             if (isSendKey) {
                 key = st.nextToken();
-                aes = new AesClass(Hex.decodeHex(key));
-                log.info("클라에서 키 전달받음: {}", key);
-            }
-            setSecretKey();
+                aes.setSecretKey(Hex.decodeHex(key));
+                log.info("클라이언트에서 키 전달받음: {}", key);
+            } else
+                setSecretKey();
+
             return true;
 
         } catch (Exception ignore) {
@@ -152,14 +158,13 @@ public class MyServer {
 
 
     private void setSecretKey() {
-        if (isSendKey) return;
         byte[] secretKeyByteArr = new byte[aesKeyLength / 8];
         srn.nextBytes(secretKeyByteArr);
         log.debug("암호키 생성");
         key = Hex.encodeHexString(secretKeyByteArr);
 
         try {
-            aes = new AesClass(secretKeyByteArr);
+            aes.setSecretKey(secretKeyByteArr);
             log.debug("AES 암호키 객체 생성");
         } catch (Exception ignore) {
             log.error("AES 암호키 객체 생성 실패");
@@ -191,6 +196,7 @@ public class MyServer {
             log.info("수신 받은 암호 코드: {}", inputMessage);
             inputMessage = messageDecode(inputMessage);
             log.info("복호화 결과: {}", inputMessage);
+            System.out.println(key);
             System.out.println("수신: " + inputMessage);
             return !inputMessage.equals("exit");
         } catch (IOException ignore) {
