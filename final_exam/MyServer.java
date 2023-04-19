@@ -15,22 +15,26 @@ import java.util.StringTokenizer;
 
 public class MyServer {
     private static final Logger log = LoggerFactory.getLogger(MyServer.class);
-    // 암호화를 위한 변수들
+    // 암호화 
     AesClass aes = null;
     String key = null;
     byte[] iv = null;
     char[] byteArr = null;
+    private SecureRandom srn = null;
+
+    // 설정 
     private int aesKeyLength = 128;
     private boolean isSendKey = false;
     private boolean isCreateIv = true;
-    // 입출력을 위한 변수들
+
+    // 입출력 
     private InputStreamReader in = null;
     private InputStreamReader sr = null;
     private OutputStreamWriter out = null;
-    // 서버 객체들
+
+    // 서버 
     private ServerSocket serSocket = null;
     private Socket socket = null;
-    private SecureRandom srn = null;
 
     public static void main(String[] args) {
         MyServer myServer = new MyServer();
@@ -81,40 +85,6 @@ public class MyServer {
     }
     */
 
-    private void initSocket() {
-        try {
-            this.socket = serSocket.accept();
-            log.debug("소켓 생성");
-        } catch (IOException ignore) {
-            log.debug("소켓 생성 실패");
-        }
-    }
-
-    private boolean receptionSetting() {
-        byteArr = new char[512];
-        try {
-            in.read(byteArr);
-            String setting = new String(byteArr).trim();
-            StringTokenizer st = new StringTokenizer(setting, ":");
-            log.info("수신 받은 설정: {}", setting);
-
-            isSendKey = st.nextToken().equals("0");
-            aesKeyLength = Integer.parseInt(st.nextToken());
-            isCreateIv = st.nextToken().equals("1");
-            if (isSendKey) {
-                key = st.nextToken();
-                aes = new AesClass(Hex.decodeHex(key));
-                log.info("클라에서 키 전달받음: {}", key);
-            }
-            initSecretKey();
-            return true;
-
-        } catch (Exception ignore) {
-            log.error("설정 수신 실패");
-            return false;
-        }
-    }
-
     private void initSerSocket() {
         log.debug("소켓 생성");
         try {
@@ -133,6 +103,16 @@ public class MyServer {
         }
     }
 
+    private void initSocket() {
+        try {
+            this.socket = serSocket.accept();
+            log.debug("소켓 생성");
+        } catch (IOException ignore) {
+            log.debug("소켓 생성 실패");
+        }
+    }
+
+
     private void initStream() {
         log.debug("입출력 스트림 생성");
         try {
@@ -145,8 +125,33 @@ public class MyServer {
 
     }
 
-    private void initSecretKey() {
-        log.debug("암호화 키 생성");
+    private boolean receptionSetting() {
+        byteArr = new char[512];
+        try {
+            in.read(byteArr);
+            String setting = new String(byteArr).trim();
+            StringTokenizer st = new StringTokenizer(setting, ":");
+            log.info("수신 받은 설정: {}", setting);
+
+            isSendKey = st.nextToken().equals("0");
+            aesKeyLength = Integer.parseInt(st.nextToken());
+            isCreateIv = st.nextToken().equals("1");
+            if (isSendKey) {
+                key = st.nextToken();
+                aes = new AesClass(Hex.decodeHex(key));
+                log.info("클라에서 키 전달받음: {}", key);
+            }
+            setSecretKey();
+            return true;
+
+        } catch (Exception ignore) {
+            log.error("설정 수신 실패");
+            return false;
+        }
+    }
+
+
+    private void setSecretKey() {
         if (isSendKey) return;
         byte[] secretKeyByteArr = new byte[aesKeyLength / 8];
         srn.nextBytes(secretKeyByteArr);
@@ -167,12 +172,12 @@ public class MyServer {
         try {
             if (!isSendKey) {
                 out.write(key + ":");
-                log.info("클라에 암호키 전달");
+                log.info("클라이언트에 암호키 전달");
             }
             out.write(strIv);
             out.flush();
             log.debug("암호키 송신");
-            log.debug("암호키: {}\nIV: {}\n 키 크기: {}", key, strIv, aesKeyLength);
+            log.debug("암호키: {} IV: {} 키 크기: {}", key, strIv, aesKeyLength);
         } catch (IOException ignore) {
             log.error("암호키 송신 실패");
         }

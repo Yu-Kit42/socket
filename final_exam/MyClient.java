@@ -16,26 +16,26 @@ import java.util.StringTokenizer;
 
 public class MyClient {
     private static final Logger log = LoggerFactory.getLogger(MyClient.class);
-    // 암호화를 위한 변수들
+    private final String ipAddress = "10.51.10.230";
+    private Socket socket = null;
+
+    // 암호화
     private SecureRandom srn = null;
     private AesClass aes = null;
     private String key = null;
     private byte[] iv = null;
 
-    // 입출력을 위한 char 배열, 메뉴 출력을 위한 StringBuilder
+    // 입출력
     private char[] byteArr = null;
-    private StringBuilder sb = null;
-    // 입출력을 위한 Stream 객체들
     private InputStreamReader in = null;
     private InputStreamReader sr = null;
     private OutputStreamWriter out = null;
+    private StringBuilder sb = null;
 
-    private Socket socket = null;
+    // 설정
     private boolean isSendKey = true;
     private int aesKeyLength = 128;
     private boolean isCreateIv = true;
-    private final String ipAddress = "10.51.10.230";
-
 
     public static void main(String[] args) {
         MyClient myClient = new MyClient();
@@ -47,27 +47,25 @@ public class MyClient {
         do {
             isConnection = myClient.runMenu();
             myClient.streamClose();
-        }
-        while (isConnection);
-
+        } while (isConnection);
     }
 
     private boolean runMenu() {
         while (true) {
-            setMenuMsg();
+            printMenuMsg();
             byteArr = new char[512];
             try {
                 sr.read(byteArr);
                 switch (byteArr[0]) {
                     case '1':
-                        if (communicationExecute()) continue;
+                        if (!communicationExecute()) continue;
                         return true;
                     case '2':
                         isSendKey = !isSendKey;
-                        initSecretKey();
+                        setSecretKey();
                         break;
                     case '3':
-                        initAesKeyLength();
+                        setAesKeyLength();
                         break;
                     case '4':
                         isCreateIv = !isCreateIv;
@@ -76,7 +74,7 @@ public class MyClient {
                         System.out.println("통신을 종료합니다");
                         return false;
                     default:
-                            System.out.println("올바르지 않은 입력입니다");
+                        System.out.println("올바르지 않은 입력입니다");
                 }
             } catch (Exception ignore) {
                 log.error("메뉴에서 오류발생!");
@@ -86,14 +84,19 @@ public class MyClient {
     }
 
     private boolean communicationExecute() {
-        if (!initSocket()) return true;
+        if (!initSocket()) return false;
         initStream();
-        if (!sendSetting() || !receptionKey()) return true;
-        while (send()) if (!reception()) break;
-        return false;
+        if (!sendSetting() || !receptionKey()) return false;
+        while (send()) {
+            if (!reception()) {
+                System.out.println("서버에서 종료 메시지를 보냈습니다.");
+                break;
+            }
+        }
+        return true;
     }
 
-    private void initAesKeyLength() {
+    private void setAesKeyLength() {
         try {
             byteArr = new char[512];
             System.out.println("1: 128, 2: 192, 3: 256 (범위 외 입력시 크기가 유지됩니다.)");
@@ -102,17 +105,38 @@ public class MyClient {
             else if (byteArr[0] == '2') aesKeyLength = 192;
             else if (byteArr[0] == '3') aesKeyLength = 256;
             else return;
-            initSecretKey();
+            setSecretKey();
         } catch (IOException ignore) {
             log.error("aes 키 길이 변경 실패");
         }
     }
+
+    private void setSecretKey() {
+        if (isSendKey) return;
+        try {
+            if (srn == null) srn = SecureRandom.getInstanceStrong();
+        } catch (Exception ignore) {
+            log.error("랜덤 객체 생성 실패");
+        }
+        byte[] secretKeyByteArr = new byte[aesKeyLength / 8];
+        srn.nextBytes(secretKeyByteArr);
+        log.debug("암호키 생성");
+        key = Hex.encodeHexString(secretKeyByteArr);
+
+        try {
+            aes = new AesClass(secretKeyByteArr);
+            log.debug("AES 암호키 객체 생성");
+        } catch (Exception ignore) {
+            log.error("AES 암호키 객체 생성 실패");
+        }
+    }i
 
     private boolean sendSetting() {
         if (!socket.isConnected()) {
             System.out.println("아직 서버가 준비되지 않았습니다 잠시 뒤 시도해 주세요");
             return false;
         }
+
         sb.setLength(0);
         sb.append(isSendKey ? 1 : 0).append(":");
         sb.append(aesKeyLength).append(":");
@@ -130,7 +154,7 @@ public class MyClient {
         }
     }
 
-    private void setMenuMsg() {
+    private void printMenuMsg() {
         sb.setLength(0);
         sb.append("=====현재 설정=====").append("\n");
         sb.append("암호키 설정: ").append(isSendKey ? "서버에서 전송받음" : "클라이언트에서 전달: ").append(isSendKey ? "" : key).append("\n");
@@ -175,7 +199,6 @@ public class MyClient {
         } catch (IOException ignore) {
             log.error("송신 스트림 생성 실패");
         }
-
     }
 
     private boolean receptionKey() {
@@ -189,7 +212,7 @@ public class MyClient {
                 key = st.nextToken();
                 log.info("수신 받은 암호키: {}", key);
             } else {
-                log.info("클라에서 암호키 전달: {}", key);
+                log.info("클라이언트에서 암호키 전달: {}", key);
             }
             iv = Hex.decodeHex(st.nextToken());
             log.info("수신 받은 iv: {}", Hex.encodeHexString(iv));
@@ -259,23 +282,4 @@ public class MyClient {
         }
     }
 
-    private void initSecretKey() {
-        if (isSendKey) return;
-        try {
-            if (srn == null) srn = SecureRandom.getInstanceStrong();
-        } catch (Exception ignore) {
-            log.error("랜덤 객체 생성 실패");
-        }
-        byte[] secretKeyByteArr = new byte[aesKeyLength / 8];
-        srn.nextBytes(secretKeyByteArr);
-        log.debug("암호키 생성");
-        key = Hex.encodeHexString(secretKeyByteArr);
-
-        try {
-            aes = new AesClass(secretKeyByteArr);
-            log.debug("AES 암호키 객체 생성");
-        } catch (Exception ignore) {
-            log.error("AES 암호키 객체 생성 실패");
-        }
-    }
 }
