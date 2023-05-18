@@ -5,17 +5,16 @@ import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import socket.aes.AesClass;
+import socket.aes.*
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.net.Socket;
 import java.security.SecureRandom;
+import java.util.Properties;
 
 public class MyClient {
     private static final Logger log = LoggerFactory.getLogger(MyClient.class);
-    private final String ipAddress = "10.51.10.230";
+    private String ipAddress = null;
 
     // 암호화
     private SecureRandom srn = null;
@@ -44,9 +43,13 @@ public class MyClient {
         myClient.sb = new StringBuilder();
         myClient.objectMapper = new ObjectMapper();
 
-        while (myClient.runMenu()) myClient.streamClose();
+        while (myClient.runMenu())
+            myClient.streamClose();
+
+
 
     }
+
 
     private boolean runMenu() {
         while (true) {
@@ -90,13 +93,12 @@ public class MyClient {
                 log.error("aes 객체 생성 실패 {}", ignore.getLocalizedMessage());
             }
         }
-
         if (!initSocket()) return false;
         initStream();
+
         if (!sendSetting() || !receptionKey()) return false;
         aes.setSecretKey(Hex.decodeHex(key));
         while (send()) if (!reception()) break;
-
         return true;
     }
 
@@ -131,9 +133,8 @@ public class MyClient {
 
     private boolean sendSetting() {
         try {
-            Message msg = new Message("setting", isSendKey, aesKeyLength, key, isCreateIv, null, null);
+            Message msg = new Message("sendSetting", isSendKey, aesKeyLength, isCreateIv, null, !isSendKey ? key : null);
             String sendSettingMsg = objectMapper.writeValueAsString(msg);
-
             log.info(sendSettingMsg);
             out.write(sendSettingMsg);
             out.flush();
@@ -193,11 +194,11 @@ public class MyClient {
             in.read(byteArr);
             System.out.println("연결 성공");
             String keyMsg = new String(byteArr).trim();
-            Msg msg = objectMapper.readValue(keyMsg, Msg.class);
+            Message msg = objectMapper.readValue(keyMsg, Message.class);
 
-            log.error("IV: {} HAD: {} MSG: {}", msg.getIv(), msg.getHad(), msg.getMessage());
+            log.error("IV: {} Header: {} Msg: {}", msg.getIv(), msg.getHeader(), msg.getMsg());
             if (isSendKey) {
-                key = msg.getMessage();
+                key = msg.getMsg();
                 log.info("수신 받은 암호키: {}", key);
             } else {
                 log.info("클라이언트에서 암호키 전달: {}", key);
@@ -223,8 +224,9 @@ public class MyClient {
             String inputMsg = new String(byteArr).trim();
             String outputMessage = messageEncode(inputMsg);
 
-            Msg msg = new Msg("send", iv, outputMessage);
+            Message msg = new Message("send", false, 0, false, iv, outputMessage);
             outputMessage = objectMapper.writeValueAsString(msg);
+
             out.write(outputMessage);
             out.flush();
             log.info("json: {}", outputMessage);
@@ -242,10 +244,10 @@ public class MyClient {
             in.read(byteArr);
             String inputMessage = new String(byteArr).trim();
             log.info("수신 받은 코드: {}", inputMessage);
-            Msg msg = objectMapper.readValue(inputMessage, Msg.class);
+            Message msg = objectMapper.readValue(inputMessage, Message.class);
 
             if (isCreateIv) iv = msg.getIv();
-            inputMessage = msg.getMessage();
+            inputMessage = msg.getMsg();
             inputMessage = messageDecode(inputMessage);
             System.out.println("복호화 결과: " + inputMessage);
 

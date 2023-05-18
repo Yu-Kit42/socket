@@ -1,6 +1,6 @@
 package socket.jsonEx02;
 
-import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Message {
 
@@ -8,18 +8,23 @@ public class Message {
 
     private boolean sendKey;
     private int aesKeyLength;
-    private String key;
 
     private boolean createIv;
     private String iv;
 
     private String msg;
 
-    public Message(String header, boolean sendKey, int aesKeyLength, String key, boolean createIv, String iv, String msg) {
+
+    public Message(
+            @JsonProperty("header")     String header,
+            @JsonProperty("sendKey")    boolean sendKey,
+            @JsonProperty("aesKeyLength")int aesKeyLength,
+            @JsonProperty("createIv")   boolean createIv,
+            @JsonProperty("iv")         String iv,
+            @JsonProperty("msg")        String msg) {
         this.header = header;
         this.sendKey = sendKey;
         this.aesKeyLength = aesKeyLength;
-        this.key = key;
         this.createIv = createIv;
         this.iv = iv;
         this.msg = msg;
@@ -35,10 +40,6 @@ public class Message {
 
     public int getAesKeyLength() {
         return aesKeyLength;
-    }
-
-    public String getKey() {
-        return key;
     }
 
     public boolean isCreateIv() {

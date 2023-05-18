@@ -33,7 +33,7 @@ public class MyServer {
 
     // 설정
     private int aesKeyLength = 128;
-    private boolean isSendKey = false;
+    private boolean isClientSendKey = false;
     private boolean isCreateIv = true;
 
 
@@ -54,11 +54,12 @@ public class MyServer {
             myServer.initStream();
 
             // 통신 전 환경 설정 체크
-            if (!myServer.receptionSetting()) continue;
-            myServer.sendKey();
+            myServer.reception();
 
             // 실제 통신
-            while (myServer.reception()) if (myServer.send()) break;
+            while (myServer.reception()) {
+                if (myServer.send()) break;
+            }
             myServer.inPutStreamClose();
 
             // 통신을 계속할지 서버를 내릴지 선택
@@ -113,7 +114,6 @@ public class MyServer {
     }
 
 
-
     private void setSecretKey() {
         byte[] secretKeyByteArr = new byte[aesKeyLength / 8];
         srn.nextBytes(secretKeyByteArr);
@@ -131,7 +131,8 @@ public class MyServer {
     private void sendKey() {
         createIv();
         try {
-            Msg msg = new Msg("sendKey", iv, key);
+            String sendKey = (!isClientSendKey ? "keyIsSend" : key);
+            Message msg = new Message("sendKey", false, 0, false, iv, sendKey);
             String sendKeyJson = objectMapper.writeValueAsString(msg);
 
             out.write(sendKeyJson);
@@ -150,7 +151,14 @@ public class MyServer {
             String inputMessage = new String(byteArr).trim();
             log.info("수신 받은 코드: {}", inputMessage);
             Message msg = objectMapper.readValue(inputMessage, Message.class);
-            if (msg.getHeader().equals("setting")) initSetting(msg);
+
+            if (msg.getHeader().equals("sendSetting")) {
+                initSetting(msg);
+                sendKey();
+                return true;
+            }
+
+            inputMessage = messageDecode(msg.getMsg());
 
             log.info("복호화 결과: {}", inputMessage);
             System.out.println("수신: " + inputMessage);
@@ -164,22 +172,18 @@ public class MyServer {
 
     private void initSetting(Message msg) {
         try {
-
-            isSendKey = msg.isSendKey();
+            isClientSendKey = msg.isSendKey();
             aesKeyLength = msg.getAesKeyLength();
             isCreateIv = msg.isCreateIv();
 
-            if (!isSendKey) {
-                key = msg.getSecretKey();
+            if (!isClientSendKey) {
+                key = msg.getMsg();
                 aes.setSecretKey(Hex.decodeHex(key));
                 log.info("클라이언트에서 키 전달받음: {}", key);
             } else setSecretKey();
-
-            return true;
         } catch (Exception ignore) {
             log.error("설정 수신 실패");
             ignore.printStackTrace();
-            return false;
         }
     }
 
@@ -196,7 +200,7 @@ public class MyServer {
             result = outputMessage.equals("exit");
             outputMessage = messageEncode(outputMessage);
 
-            Msg msg = new Msg("send", iv, outputMessage);
+            Message msg = new Message("send", false, 0, false, iv, outputMessage);
             outputMessage = objectMapper.writeValueAsString(msg);
 
             out.write(outputMessage);

@@ -2,6 +2,7 @@ package socket.aes;
 
 
 import org.apache.commons.codec.binary.Hex;
+import socket.Config;
 
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
@@ -11,13 +12,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 
 public class AesClass {
-    private static final String AES_PADDING = "AES/CBC/PKCS5Padding";
     private final Cipher c;
     private SecretKeySpec secretKey;
 
     public AesClass() throws NoSuchPaddingException, NoSuchAlgorithmException {
         // Cipher 객체 인스턴스화(Java 에서는 PKCS#5으로 작성되지만 PKCS#7으로 실행된다.)
-        c = Cipher.getInstance(AES_PADDING);
+        c = Cipher.getInstance(Config.AES_PADDING);
     }
 
     public void setSecretKey(byte[] bytes) {
